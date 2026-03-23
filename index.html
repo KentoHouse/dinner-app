@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>上輋報飯系統 - kentohouse.com</title>
+    <title>上輋報飯系統 - 安全鎖定版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -13,10 +13,12 @@
         .btn-active-blue { background-color: #3b82f6; color: white; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2); }
         .btn-active-indigo { background-color: #6366f1; color: white; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2); }
         .btn-inactive { background-color: white; color: #94a3b8; border: 1px solid #e2e8f0; }
+        .btn-locked { opacity: 0.85; cursor: pointer; }
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 p-4 md:p-8">
     <div id="app" class="max-w-2xl mx-auto">
+        <!-- 標題欄 -->
         <div class="bg-white rounded-3xl p-6 shadow-sm mb-6 border border-slate-100">
             <div class="flex items-center gap-4">
                 <div class="bg-orange-100 p-3 rounded-2xl text-orange-600">
@@ -27,27 +29,25 @@
                         <h1 class="text-2xl font-bold text-slate-800">上輋報飯</h1>
                         <span id="week-display" class="text-orange-500 font-bold text-lg"></span>
                     </div>
-                    <p class="text-slate-500 text-xs mt-1">逢星期三、五、無飯日 (星期四出街食)</p>
+                    <p class="text-slate-500 text-xs mt-1">💡 點擊後自動鎖定。若需修改，請連按 3 次解鎖並清除選擇。</p>
                 </div>
             </div>
         </div>
+
+        <!-- 每日報飯區 -->
         <div id="days-container" class="space-y-6"></div>
+
+        <!-- 總結欄 -->
         <div class="mt-8 bg-slate-800 rounded-3xl p-6 text-white shadow-xl">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold flex items-center gap-2">
-                    <i data-lucide="clipboard-list" class="w-5 h-5 text-orange-400"></i>
-                    數據匯總
-                </h3>
+                <h3 class="text-lg font-bold flex items-center gap-2"><i data-lucide="clipboard-list" class="w-5 h-5 text-orange-400"></i> 數據彙整</h3>
                 <button onclick="copySummary()" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl flex items-center gap-2 transition-all text-sm">
-                    <span id="copy-btn-text" class="flex items-center gap-2">
-                        <i data-lucide="copy" class="w-4 h-4"></i>
-                        複製摘要
-                    </span>
+                    <span id="copy-btn-text" class="flex items-center gap-2"><i data-lucide="copy" class="w-4 h-4"></i> 複製摘要</span>
                 </button>
             </div>
             <div id="summary-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
         </div>
-        <p class="text-center text-slate-400 text-xs mt-8 mb-12">Designed by IT Support | kentohouse.com</p>
+        <p class="text-center text-slate-400 text-xs mt-8 mb-12">Designed for kentohouse.com</p>
     </div>
 
     <script>
@@ -58,12 +58,24 @@
             { id: 'thu', label: '星期四 (一齊出街食)', icon: 'store' }
         ];
 
+        // 狀態管理
         let state = {};
+        let locks = {}; 
+        let clickCounters = {}; 
+
+        // 初始化數據
         COOKING_DAYS.forEach(day => {
             state[day.id] = {};
-            MEMBERS.forEach(m => { state[day.id][m] = { dinner: false, lunchBox: false }; });
+            locks[day.id] = {};
+            clickCounters[day.id] = {};
+            MEMBERS.forEach(m => { 
+                state[day.id][m] = { dinner: false, lunchBox: false };
+                locks[day.id][m] = { dinner: false, lunchBox: false };
+                clickCounters[day.id][m] = { dinner: 0, lunchBox: 0 };
+            });
         });
 
+        // 自動計算週數與日期
         function getWeekInfo() {
             const now = new Date();
             const dayOfWeek = now.getDay();
@@ -81,51 +93,95 @@
 
         const weekInfo = getWeekInfo();
 
+        // 渲染主畫面
         function render() {
             document.getElementById('week-display').innerHTML = `${weekInfo.weekStr} <span class="text-slate-400 text-sm font-normal">(${weekInfo.rangeStr})</span>`;
             const container = document.getElementById('days-container');
+            
             container.innerHTML = COOKING_DAYS.map(day => `
                 <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-lg font-bold text-slate-700 flex items-center gap-2">
                             <div class="w-2 h-6 rounded-full ${day.id === 'thu' ? 'bg-blue-400' : 'bg-orange-400'}"></div>
                             ${day.label}
-                            <i data-lucide="${day.icon}" class="w-4 h-4 ${day.id === 'thu' ? 'text-blue-500' : 'text-orange-500'}"></i>
                         </h2>
-                        <div class="flex gap-3 text-xs font-medium text-slate-400">
-                            <span class="flex items-center gap-1"><i data-lucide="${day.id === 'thu' ? 'users' : 'utensils'}" class="w-3 h-3"></i> ${day.id === 'thu' ? '出街' : '晚飯'}</span>
-                            ${day.id !== 'thu' ? '<span class="flex items-center gap-1"><i data-lucide="briefcase" class="w-3 h-3"></i> 帶飯</span>' : ''}
-                        </div>
                     </div>
                     <div class="grid gap-3">
                         ${MEMBERS.map(m => `
                             <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50">
                                 <span class="font-semibold text-slate-700 ml-2">${m}</span>
                                 <div class="flex gap-2">
-                                    <button onclick="toggle('${day.id}', '${m}', 'dinner')" 
-                                        class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${state[day.id][m].dinner ? (day.id === 'thu' ? 'btn-active-blue' : 'btn-active-orange') : 'btn-inactive'}">
-                                        <i data-lucide="${day.id === 'thu' ? 'users' : 'utensils'}" class="w-4 h-4"></i> ${day.id === 'thu' ? '參與' : '晚飯'}
-                                    </button>
-                                    ${day.id !== 'thu' ? `<button onclick="toggle('${day.id}', '${m}', 'lunchBox')" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${state[day.id][m].lunchBox ? 'btn-active-indigo' : 'btn-inactive'}"><i data-lucide="briefcase" class="w-4 h-4"></i> 帶飯</button>` : ''}
+                                    ${renderButton(day.id, m, 'dinner', day.id === 'thu' ? 'users' : 'utensils', day.id === 'thu' ? '參與' : '晚飯', day.id === 'thu' ? 'btn-active-blue' : 'btn-active-orange')}
+                                    ${day.id !== 'thu' ? renderButton(day.id, m, 'lunchBox', 'briefcase', '帶飯', 'btn-active-indigo') : ''}
                                 </div>
                             </div>
                         `).join('')}
                     </div>
-                </div>
-            `).join('');
+                </div>`).join('');
 
+            updateSummary();
+            lucide.createIcons();
+        }
+
+        // 渲染按鈕邏輯
+        function renderButton(dayId, member, type, icon, label, activeClass) {
+            const isLocked = locks[dayId][member][type];
+            const isActive = state[dayId][member][type];
+            const count = clickCounters[dayId][member][type];
+            
+            let currentClass = isActive ? activeClass : 'btn-inactive';
+            if (isLocked) currentClass += ' btn-locked';
+
+            return `
+                <button onclick="handleBtnClick('${dayId}', '${member}', '${type}')" 
+                    class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${currentClass}">
+                    <i data-lucide="${isLocked ? 'lock' : icon}" class="w-4 h-4"></i>
+                    ${label}
+                    ${isLocked && count > 0 ? `<span class="absolute -top-2 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">${count}</span>` : ''}
+                </button>
+            `;
+        }
+
+        // 處理按鈕點擊
+        function handleBtnClick(dayId, member, type) {
+            if (!locks[dayId][member][type]) {
+                // 如果未鎖定：切換選取狀態，並自動進入鎖定模式
+                state[dayId][member][type] = !state[dayId][member][type];
+                locks[dayId][member][type] = true;
+            } else {
+                // 如果已鎖定：增加點擊計數
+                clickCounters[dayId][member][type]++;
+                
+                // 連按 3 次觸發解鎖
+                if (clickCounters[dayId][member][type] >= 3) {
+                    locks[dayId][member][type] = false;
+                    clickCounters[dayId][member][type] = 0;
+                    // 解鎖後自動清除高亮 (重置為 false)
+                    state[dayId][member][type] = false;
+                }
+            }
+            render();
+        }
+
+        // 更新數據彙整區
+        function updateSummary() {
             const summaryGrid = document.getElementById('summary-grid');
             summaryGrid.innerHTML = COOKING_DAYS.map(day => {
                 const dinners = MEMBERS.filter(m => state[day.id][m].dinner).length;
                 const boxes = MEMBERS.filter(m => state[day.id][m].lunchBox).length;
                 const isThu = day.id === 'thu';
-                return `<div class="bg-white/5 rounded-2xl p-4"><p class="text-slate-400 text-xs mb-2">${day.label}</p><div class="flex justify-between items-end"><div><p class="text-2xl font-bold ${isThu ? 'text-blue-300' : 'text-white'}">${dinners}</p><p class="text-[10px] uppercase text-slate-500">${isThu ? '出街人數' : '晚飯人數'}</p></div>${!isThu ? `<div class="text-right"><p class="text-2xl font-bold text-indigo-300">${boxes}</p><p class="text-[10px] uppercase text-slate-500">飯盒需求</p></div>` : ''}</div></div>`;
+                return `
+                    <div class="bg-white/5 rounded-2xl p-4">
+                        <p class="text-slate-400 text-xs mb-2">${day.label}</p>
+                        <div class="flex justify-between items-end">
+                            <div><p class="text-2xl font-bold ${isThu ? 'text-blue-300' : 'text-white'}">${dinners}</p><p class="text-[10px] uppercase text-slate-500">${isThu ? '出街' : '晚飯'}</p></div>
+                            ${!isThu ? `<div class="text-right"><p class="text-2xl font-bold text-indigo-300">${boxes}</p><p class="text-[10px] uppercase text-slate-500">帶飯</p></div>` : ''}
+                        </div>
+                    </div>`;
             }).join('');
-            lucide.createIcons();
         }
 
-        function toggle(dayId, member, type) { state[dayId][member][type] = !state[dayId][member][type]; render(); }
-
+        // 複製摘要功能
         function copySummary() {
             let summary = `📅 ${weekInfo.weekStr} (${weekInfo.rangeStr}) 報飯摘要\n------------------\n`;
             COOKING_DAYS.forEach(day => {
@@ -140,6 +196,7 @@
             btnText.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-green-400"></i> 已複製！';
             lucide.createIcons(); setTimeout(() => { btnText.innerHTML = original; lucide.createIcons(); }, 2000);
         }
+
         render();
     </script>
 </body>
