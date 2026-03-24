@@ -15,7 +15,6 @@
         .btn-inactive { background-color: white; color: #94a3b8; border: 1px solid #e2e8f0; }
         .btn-locked { opacity: 0.85; border: 2px solid #cbd5e1; cursor: default; }
         .loading-overlay { position: fixed; inset: 0; background: white; display: flex; align-items: center; justify-content: center; z-index: 50; transition: opacity 0.5s; }
-        .status-badge { transition: all 0.3s ease; }
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -56,10 +55,10 @@
                             <h1 class="text-2xl font-bold text-slate-800">上輋報飯</h1>
                             <span id="week-display" class="text-orange-500 font-bold text-lg"></span>
                         </div>
-                        <div id="sync-status" class="status-badge flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full">
-                            <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                            <span id="status-text">雲端連線中</span>
-                        </div>
+                        <!-- GO-HOME 按鈕 -->
+                        <a href="index.html" class="flex items-center gap-1.5 text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded-xl font-bold hover:bg-slate-700 transition-all shadow-sm">
+                            <i data-lucide="home" class="w-3 h-3"></i> GO-HOME
+                        </a>
                     </div>
                     <p class="text-slate-500 text-xs mt-1">💡 晚飯/參與與食自己互斥。選取後轉灰。連按 3 次解除鎖定。</p>
                 </div>
@@ -127,23 +126,6 @@
 
         localState = initBaseState();
 
-        const updateStatus = (type, message) => {
-            const badge = document.getElementById('sync-status');
-            const text = document.getElementById('status-text');
-            const dot = badge.querySelector('span');
-            if (badge && text && dot) {
-                if (type === 'success') {
-                    badge.className = "status-badge flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-1 rounded-full";
-                    dot.className = "w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse";
-                    text.innerText = message || "雲端已同步";
-                } else {
-                    badge.className = "status-badge flex items-center gap-1 text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded-full";
-                    dot.className = "w-1.5 h-1.5 bg-red-500 rounded-full";
-                    text.innerText = message || "同步錯誤";
-                }
-            }
-        };
-
         const startSync = (weekId) => {
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
 
@@ -151,7 +133,6 @@
                 if (docSnap.exists()) {
                     localState = docSnap.data().votes;
                     render();
-                    updateStatus('success');
                 } else {
                     setDoc(docRef, { votes: initBaseState() }).catch(e => console.error("Write failed", e));
                 }
@@ -166,7 +147,6 @@
                 if (err.code === 'permission-denied') {
                     document.getElementById('error-modal').classList.remove('hidden');
                     document.getElementById('loader').style.display = 'none';
-                    updateStatus('error', '權限不足');
                 }
             });
         };
@@ -223,10 +203,8 @@
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
             try { 
                 await setDoc(docRef, { votes: localState });
-                updateStatus('success');
             } catch (e) { 
                 console.error("Cloud Write Error:", e);
-                updateStatus('error', '儲存失敗');
             }
         }
 
