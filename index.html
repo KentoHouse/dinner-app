@@ -1,324 +1,122 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>上輋報飯系統 - 多人同步版</title>
+    <title>上輋族 - 官方網頁</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .btn-active-orange { background-color: #f97316; color: white; box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.4); }
-        .btn-active-blue { background-color: #3b82f6; color: white; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4); }
-        .btn-active-gray { background-color: #64748b; color: white; box-shadow: 0 4px 6px -1px rgba(100, 116, 139, 0.4); }
-        .btn-inactive { background-color: white; color: #94a3b8; border: 1px solid #e2e8f0; }
-        .btn-locked { opacity: 0.85; border: 2px solid #cbd5e1; cursor: default; }
-        .loading-overlay { position: fixed; inset: 0; background: white; display: flex; align-items: center; justify-content: center; z-index: 50; transition: opacity 0.5s; }
-        .status-badge { transition: all 0.3s ease; }
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Bungee+Shade&display=swap');
+
+        :root {
+            --neon-purple: #bc13fe;
+            --neon-pink: #ff00de;
+        }
+
+        body {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            margin: 0;
+            background-color: #000; 
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* --- 背景相片設定區 --- */
+        .bg-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background-image: url('shch.jpg'); 
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: cover;
+            background-attachment: fixed;
+            filter: brightness(0.65) contrast(1.1);
+        }
+
+        /* 霓虹光暈裝飾 */
+        .neon-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            height: 80vh;
+            background: radial-gradient(circle, rgba(188, 19, 254, 0.3) 0%, rgba(0, 0, 0, 0) 70%);
+            z-index: -1;
+            pointer-events: none;
+            animation: pulse 4s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            to { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        .main-title {
+            font-family: 'Bungee Shade', cursive;
+            text-shadow: 0 0 15px var(--neon-purple), 0 0 30px var(--neon-pink);
+            letter-spacing: 0.1em;
+        }
+
+        .nav-card {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .nav-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 30px rgba(188, 19, 254, 0.4);
+        }
     </style>
 </head>
-<body class="min-h-screen bg-slate-50 p-4 md:p-8">
-    <!-- 錯誤提示 -->
-    <div id="error-modal" class="error-modal hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-5">
-        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl text-center border-t-8 border-red-500">
-            <div class="text-red-500 mb-4 flex justify-center">
-                <i data-lucide="shield-alert" class="w-16 h-16"></i>
-            </div>
-            <h2 class="text-xl font-bold text-slate-800 mb-4">雲端同步權限問題</h2>
-            <p class="text-slate-600 text-sm mb-6 leading-relaxed">
-                系統無法連線至雲端。請確保在 Firebase 的 <b>Firestore Database</b> 分頁中已發佈正確的 <b>Rules</b>。
-            </p>
-            <button onclick="location.reload()" class="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-all">
-                重新整理
-            </button>
-        </div>
-    </div>
+<body class="min-h-screen flex flex-col items-center justify-center p-6">
 
-    <!-- 加載動畫 -->
-    <div id="loader" class="loading-overlay">
-        <div class="flex flex-col items-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-            <p class="mt-4 text-slate-500 font-medium text-sm">正在同步最新數據...</p>
-        </div>
-    </div>
+    <div class="bg-container"></div>
+    <div class="neon-glow"></div>
 
-    <div id="app" class="max-w-2xl mx-auto opacity-0 transition-opacity duration-500">
-        <!-- 標題欄 -->
-        <div class="bg-white rounded-3xl p-6 shadow-sm mb-6 border border-slate-100">
-            <div class="flex items-center gap-4">
-                <div class="bg-orange-100 p-3 rounded-2xl text-orange-600">
-                    <i data-lucide="chef-hat" class="w-8 h-8"></i>
+    <div id="home-page" class="flex flex-col items-center">
+        <h1 class="main-title text-6xl md:text-8xl font-bold mb-16 text-white text-center">
+            上輋族
+        </h1>
+
+        <div class="flex flex-col md:flex-row gap-10 items-center justify-center">
+            
+            <!-- 報飯按鈕：連結至 dinner.html -->
+            <a href="dinner.html" class="nav-card p-10 rounded-[40px] w-72 cursor-pointer group">
+                <div class="w-24 h-24 mb-6 flex items-center justify-center bg-orange-500/10 rounded-full border border-orange-500/20">
+                    <svg viewBox="0 0 24 24" class="w-16 h-16 text-orange-400" fill="currentColor">
+                        <path d="M2 12c0 5.5 4.5 10 10 10s10-4.5 10-10H2z"/>
+                        <path d="M12 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" opacity="0.6"/>
+                    </svg>
                 </div>
-                <div class="flex-1">
-                    <div class="flex items-center justify-between flex-wrap gap-2">
-                        <div class="flex items-baseline gap-3">
-                            <h1 class="text-2xl font-bold text-slate-800">上輋報飯</h1>
-                            <span id="week-display" class="text-orange-500 font-bold text-lg"></span>
-                        </div>
-                        <div id="sync-status" class="status-badge flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full">
-                            <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                            <span id="status-text">雲端連線中</span>
-                        </div>
-                    </div>
-                    <p class="text-slate-500 text-xs mt-1">💡 晚飯/參與與食自己互斥。選取後轉灰。連按 3 次解除鎖定。</p>
+                <h2 class="text-3xl font-bold text-white tracking-widest">[報飯]</h2>
+            </a>
+
+            <!-- 濟州按鈕：連結至 travel.html -->
+            <a href="travel.html" class="nav-card p-10 rounded-[40px] w-72 cursor-pointer group">
+                <div class="w-24 h-24 mb-6 flex items-center justify-center bg-blue-500/10 rounded-full border border-blue-500/20">
+                    <svg viewBox="0 0 24 24" class="w-16 h-16 text-blue-400" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="7" width="16" height="13" rx="2"/>
+                        <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"/>
+                        <path d="M12 12v4M8 12v4M16 12v4"/>
+                    </svg>
                 </div>
-            </div>
-        </div>
+                <h2 class="text-3xl font-bold text-white tracking-widest">[濟州]</h2>
+            </a>
 
-        <div id="days-container" class="space-y-6"></div>
-
-        <!-- 數據彙整 -->
-        <div class="mt-8 bg-slate-800 rounded-3xl p-6 text-white shadow-xl">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold flex items-center gap-2"><i data-lucide="clipboard-list" class="w-5 h-5 text-orange-400"></i> 齊Din統計</h3>
-                <button onclick="copySummary()" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl flex items-center gap-2 transition-all text-sm">
-                    <span id="copy-btn-text" class="flex items-center gap-2"><i data-lucide="copy" class="w-4 h-4"></i> 複製摘要</span>
-                </button>
-            </div>
-            <div id="summary-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDDAdMH0TWQ1kYTuKFhAz9KP1Y2RAt-P84",
-            authDomain: "dinnerbase.firebaseapp.com",
-            projectId: "dinnerbase",
-            storageBucket: "dinnerbase.firebasestorage.app",
-            messagingSenderId: "26681451491",
-            appId: "1:26681451491:web:50c1788cdceefcc343b6d6"
-        };
-
-        const fbApp = initializeApp(firebaseConfig);
-        const auth = getAuth(fbApp);
-        const db = getFirestore(fbApp);
-
-        const appId = 'dinnerbase-v2';
-        const MEMBERS = ['Jason', 'Cheryl', 'Cher'];
-        const COOKING_DAYS = [
-            { id: 'mon', label: '星期一 (Monday)' },
-            { id: 'tue', label: '星期二 (Tuesday)' },
-            { id: 'thu', label: '星期四 (一齊出街食)' }
-        ];
-
-        let localState = {};
-        let clickCounters = {}; 
-        let lastClickTime = {}; 
-
-        function initBaseState() {
-            const empty = {};
-            COOKING_DAYS.forEach(day => {
-                empty[day.id] = {};
-                clickCounters[day.id] = {};
-                lastClickTime[day.id] = {};
-                MEMBERS.forEach(m => {
-                    empty[day.id][m] = { dinner: false, lunchBox: false };
-                    clickCounters[day.id][m] = { dinner: 0, lunchBox: 0 };
-                    lastClickTime[day.id][m] = { dinner: 0, lunchBox: 0 };
-                });
-            });
-            return empty;
-        }
-
-        localState = initBaseState();
-
-        const updateStatus = (type, message) => {
-            const badge = document.getElementById('sync-status');
-            const text = document.getElementById('status-text');
-            const dot = badge.querySelector('span');
-            if (badge && text && dot) {
-                if (type === 'success') {
-                    badge.className = "status-badge flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-1 rounded-full";
-                    dot.className = "w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse";
-                    text.innerText = message || "雲端已同步";
-                } else {
-                    badge.className = "status-badge flex items-center gap-1 text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded-full";
-                    dot.className = "w-1.5 h-1.5 bg-red-500 rounded-full";
-                    text.innerText = message || "同步錯誤";
-                }
-            }
-        };
-
-        const startSync = (weekId) => {
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
-
-            onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    localState = docSnap.data().votes;
-                    render();
-                    updateStatus('success');
-                } else {
-                    setDoc(docRef, { votes: initBaseState() }).catch(e => console.error("Write failed", e));
-                }
-                
-                document.getElementById('loader').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('loader').style.display = 'none';
-                    document.getElementById('app').classList.remove('opacity-0');
-                }, 500);
-            }, (err) => {
-                console.error("Firebase Sync Error:", err);
-                if (err.code === 'permission-denied') {
-                    document.getElementById('error-modal').classList.remove('hidden');
-                    document.getElementById('loader').style.display = 'none';
-                    updateStatus('error', '權限不足');
-                }
-            });
-        };
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                const weekInfo = getWeekInfo();
-                startSync(weekInfo.weekId);
-            }
-        });
-
-        const initAuth = async () => {
-            try {
-                await signInAnonymously(auth);
-            } catch (e) {
-                console.error("Auth Error", e);
-                const weekInfo = getWeekInfo();
-                startSync(weekInfo.weekId);
-            }
-        };
-
-        initAuth();
-
-        window.handleBtnClick = async (dayId, member, type) => {
-            const now = Date.now();
-            const isActive = localState[dayId][member][type];
-            const otherType = type === 'dinner' ? 'lunchBox' : 'dinner';
-
-            if (now - (lastClickTime[dayId][member][type] || 0) > 1000) {
-                clickCounters[dayId][member][type] = 0; 
-            }
-            lastClickTime[dayId][member][type] = now;
-
-            if (!isActive) {
-                localState[dayId][member][type] = true;
-                if (localState[dayId][member][otherType]) {
-                    localState[dayId][member][otherType] = false;
-                    clickCounters[dayId][member][otherType] = 0;
-                }
-                await updateCloud();
-            } else {
-                clickCounters[dayId][member][type]++;
-                render(); 
-                if (clickCounters[dayId][member][type] >= 3) {
-                    localState[dayId][member][type] = false;
-                    clickCounters[dayId][member][type] = 0;
-                    await updateCloud();
-                }
-            }
-        };
-
-        async function updateCloud() {
-            const weekId = getWeekInfo().weekId;
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
-            try { 
-                await setDoc(docRef, { votes: localState });
-                updateStatus('success');
-            } catch (e) { 
-                console.error("Cloud Write Error:", e);
-                updateStatus('error', '儲存失敗');
-            }
-        }
-
-        function getWeekInfo() {
-            const now = new Date();
-            const dayOfWeek = now.getDay();
-            const diffToMon = dayOfWeek === 0 ? 1 : (dayOfWeek > 4 ? (8 - dayOfWeek) : (1 - dayOfWeek));
-            const monday = new Date(now);
-            monday.setDate(now.getDate() + diffToMon);
-            const thursday = new Date(monday);
-            thursday.setDate(monday.getDate() + 3);
-            const weekNum = Math.ceil((((monday - new Date(now.getFullYear(), 0, 1)) / 86400000) + 1) / 7);
-            const formatDate = (d) => `${d.getDate()}/${d.getMonth() + 1}`;
-            return { 
-                weekStr: `WK${weekNum}`, 
-                rangeStr: `${formatDate(monday)}-${formatDate(thursday)}`,
-                weekId: `wk_${now.getFullYear()}_${weekNum}`
-            };
-        }
-
-        function render() {
-            const weekInfo = getWeekInfo();
-            document.getElementById('week-display').innerHTML = `${weekInfo.weekStr} <span class="text-slate-400 text-sm font-normal">(${weekInfo.rangeStr})</span>`;
-            const container = document.getElementById('days-container');
-            container.innerHTML = COOKING_DAYS.map(day => `
-                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 transition-all">
-                    <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
-                        <div class="w-2 h-6 rounded-full ${day.id === 'thu' ? 'bg-blue-400' : 'bg-orange-400'}"></div>
-                        ${day.label}
-                    </h2>
-                    <div class="grid gap-3">
-                        ${MEMBERS.map(m => `
-                            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                                <span class="font-semibold text-slate-700 ml-2">${m}</span>
-                                <div class="flex gap-2">
-                                    ${renderBtn(day.id, m, 'dinner', day.id === 'thu' ? 'users' : 'utensils', day.id === 'thu' ? '參與' : '晚飯', day.id === 'thu' ? 'btn-active-blue' : 'btn-active-orange')}
-                                    ${renderBtn(day.id, m, 'lunchBox', null, '食自己', 'btn-active-gray')}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>`).join('');
-            updateSummary();
-            lucide.createIcons();
-        }
-
-        function renderBtn(dayId, member, type, icon, label, activeClass) {
-            const val = localState[dayId][member][type];
-            const count = clickCounters[dayId][member][type];
-            const displayIcon = val ? 'lock' : icon;
-            const currentClass = val ? `${activeClass} btn-locked` : 'btn-inactive';
-            const iconHtml = displayIcon ? `<i data-lucide="${displayIcon}" class="w-3.5 h-3.5"></i>` : '';
-            return `
-                <button onclick="window.handleBtnClick('${dayId}', '${member}', '${type}')" 
-                    class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${currentClass}">
-                    ${iconHtml}
-                    ${label}
-                    ${count > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${count}</span>` : ''}
-                </button>
-            `;
-        }
-
-        function updateSummary() {
-            const summaryGrid = document.getElementById('summary-grid');
-            summaryGrid.innerHTML = COOKING_DAYS.map(day => {
-                const dinners = MEMBERS.filter(m => localState[day.id][m].dinner).length;
-                return `
-                    <div class="bg-white/5 rounded-2xl p-4 border border-white/5 text-center">
-                        <p class="text-white text-xs font-bold mb-2">${day.label.split(' ')[0]}</p>
-                        <div class="flex flex-col items-center">
-                            <p class="text-3xl font-black text-orange-500">${dinners}</p>
-                            <p class="text-[10px] uppercase text-sky-300 font-bold">晚飯</p>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-
-        window.copySummary = () => {
-            const weekInfo = getWeekInfo();
-            let summary = `📅 ${weekInfo.weekStr} (${weekInfo.rangeStr}) 報飯摘要\n------------------\n`;
-            COOKING_DAYS.forEach(day => {
-                const dinnerList = MEMBERS.filter(m => localState[day.id][m].dinner);
-                const lunchList = MEMBERS.filter(m => localState[day.id][m].lunchBox);
-                summary += `【${day.label}】\n🍚 晚飯 (${dinnerList.length}人): ${dinnerList.join(', ') || '無'}\n`;
-                summary += `🙅 食自己 (${lunchList.length}人): ${lunchList.join(', ') || '無'}\n`;
-                summary += "\n";
-            });
-            const el = document.createElement("textarea"); el.value = summary; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
-            const btnText = document.getElementById('copy-btn-text'); const original = btnText.innerHTML;
-            btnText.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-green-400"></i> 已複製！';
-            lucide.createIcons(); setTimeout(() => { btnText.innerHTML = original; lucide.createIcons(); }, 2000);
-        }
-    </script>
 </body>
 </html>
