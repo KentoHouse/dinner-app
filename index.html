@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>上輋報飯系統 - 雲端即時同步版</title>
+    <title>上輋報飯系統 - 多人同步版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -25,17 +25,12 @@
             <div class="text-red-500 mb-4 flex justify-center">
                 <i data-lucide="shield-alert" class="w-16 h-16"></i>
             </div>
-            <h2 class="text-xl font-bold text-slate-800 mb-4">Firebase 權限未開放</h2>
+            <h2 class="text-xl font-bold text-slate-800 mb-4">雲端同步權限問題</h2>
             <p class="text-slate-600 text-sm mb-6 leading-relaxed">
-                系統無法連線至雲端，因為您的 Firebase 專案尚未開啟<b>「匿名登入」</b>。
+                請確保 Firebase 已經開啟了<b>「匿名登入 (Anonymous)」</b>。
             </p>
-            <div class="bg-slate-50 p-4 rounded-xl text-left text-xs text-slate-500 space-y-2 mb-6 border border-slate-100">
-                <p>1. 到 Firebase Console 點擊 <b>Build > Authentication</b></p>
-                <p>2. 點擊 <b>Sign-in method</b> 標籤</p>
-                <p>3. 啟用 <b>Anonymous</b> 供應商</p>
-            </div>
-            <button onclick="location.reload()" class="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-all shadow-lg">
-                完成設定後重新整理
+            <button onclick="location.reload()" class="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-all">
+                重新整理
             </button>
         </div>
     </div>
@@ -44,12 +39,11 @@
     <div id="loader" class="loading-overlay">
         <div class="flex flex-col items-center">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-            <p class="mt-4 text-slate-500 font-medium text-sm">正在同步雲端數據...</p>
+            <p class="mt-4 text-slate-500 font-medium text-sm">正在從雲端同步數據...</p>
         </div>
     </div>
 
     <div id="app" class="max-w-2xl mx-auto opacity-0 transition-opacity duration-500">
-        <!-- 標題欄 -->
         <div class="bg-white rounded-3xl p-6 shadow-sm mb-6 border border-slate-100">
             <div class="flex items-center gap-4">
                 <div class="bg-orange-100 p-3 rounded-2xl text-orange-600">
@@ -63,10 +57,10 @@
                         </div>
                         <span id="sync-indicator" class="flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-1 rounded-full">
                             <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                            同步連線中
+                            雲端已連線
                         </span>
                     </div>
-                    <p class="text-slate-500 text-xs mt-1">💡 點擊即鎖定。如需修改，請在該按鈕連按 3 次。</p>
+                    <p class="text-slate-500 text-xs mt-1">💡 全家即時同步。點擊即鎖定，連按 3 次可解除。</p>
                 </div>
             </div>
         </div>
@@ -77,7 +71,7 @@
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold flex items-center gap-2">
                     <i data-lucide="clipboard-list" class="w-5 h-5 text-orange-400"></i>
-                    數據彙整 (多人同步版)
+                    數據彙整 (全家即時)
                 </h3>
                 <button onclick="copySummary()" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl flex items-center gap-2 transition-all text-sm">
                     <span id="copy-btn-text" class="flex items-center gap-2"><i data-lucide="copy" class="w-4 h-4"></i> 複製摘要</span>
@@ -85,15 +79,15 @@
             </div>
             <div id="summary-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
         </div>
-        <p class="text-center text-slate-400 text-[10px] mt-8 mb-12 uppercase tracking-widest">Cloud Sync Active • kentohouse.com</p>
+        <p class="text-center text-slate-400 text-[10px] mt-8 mb-12 uppercase tracking-widest">Global Sync Active • kentohouse.com</p>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- 🚀 Firebase 配置 ---
+        // --- 🚀 使用您提供的 Firebase 配置 ---
         const firebaseConfig = {
             apiKey: "AIzaSyDDAdMH0TWQ1kYTuKFhAz9KP1Y2RAt-P84",
             authDomain: "dinnerbase.firebaseapp.com",
@@ -107,7 +101,8 @@
         const auth = getAuth(fbApp);
         const db = getFirestore(fbApp);
 
-        const appId = 'dinnerbase-app-main';
+        // 使用符合規則的路徑
+        const appId = 'dinnerbase-main-v1';
         const MEMBERS = ['Jason', 'Cheryl', 'Cher'];
         const COOKING_DAYS = [
             { id: 'mon', label: '星期一 (Monday)', icon: 'utensils' },
@@ -136,9 +131,9 @@
 
         localState = initBaseState();
 
-        const startDatabaseSync = () => {
-            const weekStr = getWeekInfo().weekId;
-            const docRef = doc(db, 'dinner_votes_v3', 'weekly_data', 'current_votes', weekStr);
+        const startSync = (weekId) => {
+            // 嚴格遵循路徑規則: /artifacts/{appId}/public/data/{collectionName}/{docId}
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
 
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
@@ -147,59 +142,54 @@
                 } else {
                     setDoc(docRef, { votes: initBaseState() });
                 }
+                
                 document.getElementById('loader').style.opacity = '0';
                 setTimeout(() => {
                     document.getElementById('loader').style.display = 'none';
                     document.getElementById('app').classList.remove('opacity-0');
                 }, 500);
             }, (err) => {
-                console.error("Firestore 同步失敗:", err);
-                // 如果是因為沒登入導致 403 錯誤，顯示彈窗
+                console.error("同步失敗", err);
                 if (err.code === 'permission-denied') {
                     document.getElementById('auth-error-modal').classList.remove('hidden');
-                    document.getElementById('loader').style.display = 'none';
                 }
             });
         };
 
-        // 監聽 Auth 狀態
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log("驗證成功，開始同步數據...");
-                startDatabaseSync();
+                const weekInfo = getWeekInfo();
+                startSync(weekInfo.weekId);
             }
         });
 
-        const initAuth = async () => {
+        const init = async () => {
             try {
                 await signInAnonymously(auth);
             } catch (e) {
-                console.error("Auth 失敗:", e);
-                if (e.code === 'auth/configuration-not-found') {
-                    // 只有在明確知道是沒開啟 Anonymous 時才顯示引導
-                    document.getElementById('auth-error-modal').classList.remove('hidden');
-                    document.getElementById('loader').style.display = 'none';
-                }
-                // 即使驗證失敗也嘗試同步（萬一 Firestore 規則是全開的測試模式）
-                startDatabaseSync();
+                console.error("Auth Error", e);
+                const weekInfo = getWeekInfo();
+                startSync(weekInfo.weekId); // 即使 Auth 失敗也嘗試連接 (Test Mode 下可能有效)
             }
         };
 
-        initAuth();
+        init();
 
         window.handleBtnClick = async (dayId, member, type) => {
             const now = Date.now();
-            const isCurrentlyActive = localState[dayId][member][type];
+            const isActive = localState[dayId][member][type];
 
             if (now - (lastClickTime[dayId][member][type] || 0) > 1000) {
                 clickCounters[dayId][member][type] = 0; 
             }
             lastClickTime[dayId][member][type] = now;
 
-            if (!isCurrentlyActive) {
+            if (!isActive) {
+                // 選取並上鎖
                 localState[dayId][member][type] = true;
                 await updateCloud();
             } else {
+                // 已上鎖，計數解鎖
                 clickCounters[dayId][member][type]++;
                 render(); 
                 if (clickCounters[dayId][member][type] >= 3) {
@@ -211,9 +201,13 @@
         };
 
         async function updateCloud() {
-            const weekStr = getWeekInfo().weekId;
-            const docRef = doc(db, 'dinner_votes_v3', 'weekly_data', 'current_votes', weekStr);
-            try { await setDoc(docRef, { votes: localState }); } catch (e) { console.error(e); }
+            const weekId = getWeekInfo().weekId;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
+            try { 
+                await setDoc(docRef, { votes: localState }); 
+            } catch (e) { 
+                console.error("更新雲端失敗", e); 
+            }
         }
 
         function getWeekInfo() {
@@ -233,19 +227,16 @@
             };
         }
 
-        const weekInfo = getWeekInfo();
-
         function render() {
+            const weekInfo = getWeekInfo();
             document.getElementById('week-display').innerHTML = `${weekInfo.weekStr} <span class="text-slate-400 text-sm font-normal">(${weekInfo.rangeStr})</span>`;
             const container = document.getElementById('days-container');
             container.innerHTML = COOKING_DAYS.map(day => `
-                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 transition-all">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-bold text-slate-700 flex items-center gap-2">
-                            <div class="w-2 h-6 rounded-full ${day.id === 'thu' ? 'bg-blue-400' : 'bg-orange-400'}"></div>
-                            ${day.label}
-                        </h2>
-                    </div>
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                    <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <div class="w-2 h-6 rounded-full ${day.id === 'thu' ? 'bg-blue-400' : 'bg-orange-400'}"></div>
+                        ${day.label}
+                    </h2>
                     <div class="grid gap-3">
                         ${MEMBERS.map(m => `
                             <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
@@ -263,16 +254,16 @@
         }
 
         function renderBtn(dayId, member, type, icon, label, activeClass) {
-            const isActive = localState[dayId][member][type];
-            const clickCount = clickCounters[dayId][member][type];
-            const displayIcon = isActive ? 'lock' : icon;
-            const currentClass = isActive ? `${activeClass} btn-locked` : 'btn-inactive';
+            const val = localState[dayId][member][type];
+            const count = clickCounters[dayId][member][type];
+            const displayIcon = val ? 'lock' : icon;
+            const currentClass = val ? `${activeClass} btn-locked` : 'btn-inactive';
             return `
                 <button onclick="window.handleBtnClick('${dayId}', '${member}', '${type}')" 
                     class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${currentClass}">
                     <i data-lucide="${displayIcon}" class="w-3.5 h-3.5"></i>
                     ${label}
-                    ${clickCount > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${clickCount}</span>` : ''}
+                    ${count > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${count}</span>` : ''}
                 </button>
             `;
         }
@@ -295,11 +286,12 @@
         }
 
         window.copySummary = () => {
+            const weekInfo = getWeekInfo();
             let summary = `📅 ${weekInfo.weekStr} (${weekInfo.rangeStr}) 報飯摘要\n------------------\n`;
             COOKING_DAYS.forEach(day => {
                 const dinnerList = MEMBERS.filter(m => localState[day.id][m].dinner);
                 const lunchList = MEMBERS.filter(m => localState[day.id][m].lunchBox);
-                summary += `【${day.label}】\n${day.id === 'thu' ? '🚶 出街人數' : '🍚 晚飯'} (${dinnerList.length}人): ${dinnerList.join(', ') || '無'}\n`;
+                summary += `【${day.label}】\n${day.id === 'thu' ? '🚶 出街' : '🍚 晚飯'} (${dinnerList.length}人): ${dinnerList.join(', ') || '無'}\n`;
                 if (day.id !== 'thu') summary += `🍱 帶飯 (${lunchList.length}個): ${lunchList.join(', ') || '無'}\n`;
                 summary += "\n";
             });
