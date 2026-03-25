@@ -1,0 +1,11 @@
+# 隱藏私密金鑰
+.env
+.env.local
+.env.*.local
+
+# 隱藏系統暫存檔
+.DS_Store
+Thumbs.db
+
+# 隱藏開發套件資料夾
+node_modules/
