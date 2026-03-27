@@ -11,12 +11,10 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Firebase App (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
-    <!-- Firebase Auth (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
-    <!-- Firebase Firestore (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
+    <!-- Firebase Compat Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #020617; }
@@ -24,7 +22,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .bg-gradient-header { background: linear-gradient(to bottom, rgba(2,6,23,0) 0%, rgba(2,6,23,0.8) 100%); }
+        .text-shadow { text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -33,16 +31,22 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Firebase 配置由環境自動注入
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "",
-            authDomain: "",
-            projectId: "",
-            storageBucket: "",
-            messagingSenderId: "",
-            appId: ""
+            apiKey: "AIzaSyBPO4VEzvUkuAZlDphTN6M7K7BORmkGePQ",
+            authDomain: "dinnerbase.firebaseapp.com",
+            projectId: "dinnerbase",
+            storageBucket: "dinnerbase.firebasestorage.app",
+            messagingSenderId: "26681451491",
+            appId: "1:26681451491:web:50c1788cdceefcc343b6d6"
         };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'jeju-travel-2026';
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'jeju-travel-2026-v2';
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
         const Icon = ({ name, size = 24, className = "" }) => {
             const icons = {
@@ -69,53 +73,40 @@
             const [isEditing, setIsEditing] = useState(false);
             const [activeTab, setActiveTab] = useState('attractions');
             const [loading, setLoading] = useState(true);
-            const [db, setDb] = useState(null);
 
             const initialData = {
-                0: { date: "27/7", day: "星期一", title: "漢拏山國家公園", img: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&q=80&w=1200&h=800&sig=101", transport: "", food: "", attractions: "", lodging: "" },
-                1: { date: "28/7", day: "星期二", title: "城山日出峰", img: "https://images.unsplash.com/photo-1528150230181-99bbf7b22162?auto=format&fit=crop&q=80&w=1200&h=800&sig=102", transport: "", food: "", attractions: "", lodging: "" },
-                2: { date: "29/7", day: "星期三", title: "萬丈窟", img: "https://images.unsplash.com/photo-1533230393279-7833ede3e244?auto=format&fit=crop&q=80&w=1200&h=800&sig=103", transport: "", food: "", attractions: "", lodging: "" },
-                3: { date: "30/7", day: "星期四", title: "天帝淵瀑布", img: "https://images.unsplash.com/photo-1621873105342-63b7238290f1?auto=format&fit=crop&q=80&w=1200&h=800&sig=104", transport: "", food: "", attractions: "", lodging: "" },
-                4: { date: "31/7", day: "星期五", title: "大浦柱狀節理帶", img: "https://images.unsplash.com/photo-1603566629039-dd617883d07f?auto=format&fit=crop&q=80&w=1200&h=800&sig=105", transport: "", food: "", attractions: "", lodging: "" },
-                5: { date: "1/8", day: "星期六", title: "咸德海邊", img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=1200&h=800&sig=106", transport: "", food: "", attractions: "", lodging: "" },
+                0: { date: "27/7", day: "星期一", title: "漢拏山國家公園", img: "image/travel/01.jpg", transport: "", food: "", attractions: "", lodging: "" },
+                1: { date: "28/7", day: "星期二", title: "城山日出峰", img: "image/travel/02.jpg", transport: "", food: "", attractions: "", lodging: "" },
+                2: { date: "29/7", day: "星期三", title: "萬丈窟", img: "image/travel/03.jpg", transport: "", food: "", attractions: "", lodging: "" },
+                3: { date: "30/7", day: "星期四", title: "天帝淵瀑布", img: "image/travel/04.jpg", transport: "", food: "", attractions: "", lodging: "" },
+                4: { date: "31/7", day: "星期五", title: "大浦柱狀節理帶", img: "image/travel/05.jpg", transport: "", food: "", attractions: "", lodging: "" },
+                5: { date: "1/8", day: "星期六", title: "咸德海邊", img: "image/travel/06.jpg", transport: "", food: "", attractions: "", lodging: "" },
             };
 
             const [travelData, setTravelData] = useState(initialData);
             const [editBuffer, setEditBuffer] = useState("");
 
             useEffect(() => {
-                const initializeFirebase = async () => {
+                const initAuth = async () => {
                     try {
-                        if (!firebase.apps.length) {
-                            firebase.initializeApp(firebaseConfig);
-                        }
-                        const auth = firebase.auth();
-                        const firestore = firebase.firestore();
-                        setDb(firestore);
-
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
                             await auth.signInAnonymously();
                         }
-
-                        const unsubscribe = auth.onAuthStateChanged((u) => {
-                            setUser(u);
-                            if (!firebaseConfig.apiKey) setLoading(false);
-                        });
-                        return () => unsubscribe();
                     } catch (e) {
                         setLoading(false);
-                        console.error("Firebase Init Error:", e);
                     }
                 };
-                initializeFirebase();
+                initAuth();
+                const unsubscribe = auth.onAuthStateChanged(setUser);
+                return () => unsubscribe();
             }, []);
 
             useEffect(() => {
-                if (!user || !db) return;
-                const path = `artifacts/${appId}/public/data/travelPlan`;
-                const unsubscribe = db.collection(path).onSnapshot((snapshot) => {
+                if (!user) return;
+                const travelPath = `artifacts/${appId}/public/data/travelPlan`;
+                const unsubscribe = db.collection(travelPath).onSnapshot((snapshot) => {
                     const updatedData = { ...initialData };
                     snapshot.forEach((doc) => {
                         const dayKey = parseInt(doc.id);
@@ -125,23 +116,18 @@
                     });
                     setTravelData(updatedData);
                     setLoading(false);
-                }, (err) => {
-                    console.error("Sync Data Error:", err);
-                    setLoading(false);
-                });
+                }, () => setLoading(false));
                 return () => unsubscribe();
-            }, [user, db]);
+            }, [user]);
 
             const handleSave = async (dayIndex, category) => {
-                if (!user || !db) return;
+                if (!user) return;
+                const travelPath = `artifacts/${appId}/public/data/travelPlan`;
                 try {
-                    const path = `artifacts/${appId}/public/data/travelPlan`;
-                    await db.collection(path).doc(dayIndex.toString()).set({
-                        [category]: editBuffer
-                    }, { merge: true });
+                    await db.collection(travelPath).doc(dayIndex.toString()).set({ [category]: editBuffer }, { merge: true });
                     setIsEditing(false);
                 } catch (error) {
-                    console.error("Save Error:", error);
+                    alert("儲存失敗");
                 }
             };
 
@@ -153,12 +139,13 @@
             ];
 
             const closeModal = () => { setSelectedDay(null); setIsEditing(false); };
+            const handleImageError = (e) => { e.target.style.display = 'none'; e.target.parentElement.style.backgroundColor = '#1e293b'; };
 
-            if (loading && !user && firebaseConfig.apiKey) {
+            if (loading && !user) {
                 return (
                     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-cyan-500 font-black gap-4">
-                        <Icon name="Cloud" size={48} className="animate-bounce" />
-                        <div className="animate-pulse tracking-widest uppercase text-xs">正在連接雲端行程表...</div>
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+                        <div className="animate-pulse tracking-widest text-xs uppercase">正在連接雲端...</div>
                     </div>
                 );
             }
@@ -166,11 +153,11 @@
             return (
                 <div className="min-h-screen bg-slate-950 text-white p-4 sm:p-8 animate-in">
                     <header className="max-w-7xl mx-auto text-center mb-12">
-                        <h1 className="text-5xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tight">上輋七遊濟州</h1>
+                        <h1 className="text-5xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tight text-shadow">上輋七遊濟州</h1>
                         <div className="flex flex-col items-center gap-2">
-                            <div className="inline-block px-5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-sm font-bold shadow-2xl tracking-wide">2026年 7月27日 至 8月1日</div>
+                            <div className="inline-block px-5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-sm font-bold shadow-2xl">2026年 7月27日 至 8月1日</div>
                             <div className="text-[10px] text-slate-600 flex items-center gap-1.5 uppercase tracking-widest font-bold">
-                                <Icon name="Cloud" size={12} /> {user ? '雲端同步連線中' : '準備同步中'}
+                                <Icon name="Cloud" size={12} /> {user ? '多人同步模式已開啟' : '離線模式'}
                             </div>
                         </div>
                     </header>
@@ -181,7 +168,7 @@
                             return (
                                 <div key={key} onClick={() => { setSelectedDay(key); setEditBuffer(travelData[key][activeTab] || ""); setIsEditing(false); }}
                                     className="group relative h-80 rounded-[2.5rem] overflow-hidden cursor-pointer shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-slate-900 border border-white/5">
-                                    <img src={item.img} alt={item.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                                    <img src={item.img} alt={item.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" onError={handleImageError} />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/10 to-transparent" />
                                     <div className="absolute inset-0 p-8 flex flex-col justify-end">
                                         <div className="flex items-center gap-3 mb-3">
@@ -197,66 +184,93 @@
                     </div>
 
                     {selectedDay !== null && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-                            <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[90vh] animate-in">
-                                <div className="relative h-64 flex-shrink-0 bg-slate-800 border-b border-white/5">
-                                    <img src={travelData[selectedDay].img} className="w-full h-full object-cover opacity-60" alt="header" />
-                                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-slate-900" />
-                                    <button onClick={closeModal} className="absolute top-8 right-8 p-3 bg-black/50 rounded-full text-white hover:bg-black/80 transition-all border border-white/10 shadow-lg"><Icon name="X" size={24} /></button>
-                                    <div className="absolute bottom-8 left-10">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="bg-cyan-500 text-slate-950 px-3 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg">DAY {parseInt(selectedDay) + 1}</span>
-                                            <span className="text-cyan-300 font-bold tracking-widest">{travelData[selectedDay].date} ({travelData[selectedDay].day})</span>
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-xl">
+                            <div className="bg-[#0b1120] w-full max-w-5xl h-[92vh] rounded-[3.5rem] overflow-hidden shadow-2xl border border-white/10 flex flex-col animate-in">
+                                
+                                {/* 頂部標題區 (Heading) - 緊湊上移 */}
+                                <div className="relative h-32 flex-shrink-0 bg-slate-800">
+                                    <img src={travelData[selectedDay].img} className="w-full h-full object-cover opacity-40" alt="header" onError={handleImageError} />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-[#0b1120]" />
+                                    <button onClick={closeModal} className="absolute top-4 right-6 p-2 bg-black/50 rounded-full text-white hover:bg-black/80 transition-all border border-white/10 shadow-lg z-20"><Icon name="X" size={24} /></button>
+                                    <div className="absolute bottom-4 left-10 right-10 flex items-end justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="bg-cyan-500 text-slate-950 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-lg">DAY {parseInt(selectedDay) + 1}</span>
+                                                <span className="text-cyan-300 font-bold text-sm tracking-wide">{travelData[selectedDay].date} ({travelData[selectedDay].day})</span>
+                                            </div>
+                                            <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tighter drop-shadow-2xl">{travelData[selectedDay].title}</h3>
                                         </div>
-                                        <h3 className="text-4xl font-black text-white tracking-tighter drop-shadow-2xl">{travelData[selectedDay].title}</h3>
                                     </div>
                                 </div>
 
-                                <div className="flex p-3 bg-slate-950/80 border-b border-white/5 overflow-x-auto no-scrollbar">
+                                {/* 導航分頁欄 - 縮小按鈕尺寸, 圖標小字平放居中 (按 image_860ba4.png 設計) */}
+                                <div className="flex justify-center gap-2 sm:gap-4 py-4 bg-[#0b1120] border-b border-white/5">
                                     {tabs.map((tab) => (
                                         <button key={tab.id} onClick={() => { setActiveTab(tab.id); setEditBuffer(travelData[selectedDay][tab.id] || ""); setIsEditing(false); }}
-                                            className={`flex-1 py-4 px-2 min-w-[90px] flex flex-col items-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === tab.id ? 'bg-cyan-500/10 text-cyan-400' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
-                                            <Icon name={tab.icon} size={20} />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span>
+                                            className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-2 border ${activeTab === tab.id ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'text-slate-500 border-transparent hover:text-slate-300'}`}>
+                                            <Icon name={tab.icon} size={14} />
+                                            <span className="text-xs font-bold uppercase tracking-widest">{tab.label}</span>
                                         </button>
                                     ))}
                                 </div>
 
-                                <div className="p-10 flex-1 overflow-y-auto bg-slate-900">
+                                {/* 內容填寫區 - 上移並高度極大化 */}
+                                <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-hidden bg-[#0b1120]">
                                     {!isEditing ? (
-                                        <div className="space-y-8 animate-in">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2 text-slate-500"><Icon name="MapPin" size={16} /><span className="text-[10px] font-black uppercase tracking-widest">{tabs.find(t => t.id === activeTab).label} 資訊欄</span></div>
-                                                <button onClick={() => { setEditBuffer(travelData[selectedDay][activeTab] || ""); setIsEditing(true); }} className="bg-slate-800 text-cyan-400 px-5 py-2.5 rounded-2xl text-xs font-black shadow-xl hover:bg-slate-700 transition-all border border-slate-700 active:scale-95"><Icon name="Edit3" size={14} className="inline mr-1.5"/>編輯內容</button>
+                                        <div className="flex-1 flex flex-col h-full animate-in relative">
+                                            {/* 文字顯示框 (Enlarge with height) */}
+                                            <div className="flex-1 bg-slate-950/20 border border-white/10 rounded-[2.5rem] p-6 sm:p-10 mb-4 overflow-y-auto text-slate-200 text-2xl sm:text-3xl font-light leading-relaxed shadow-inner no-scrollbar">
+                                                {travelData[selectedDay][activeTab] || "這裡目前沒有資訊... 點擊下方按鈕開始記錄與成員分享吧！"}
                                             </div>
-                                            <div className="bg-slate-950/50 border border-white/5 rounded-[2rem] p-8 min-h-[16rem] text-slate-200 text-xl whitespace-pre-wrap font-light tracking-wide shadow-inner leading-relaxed">
-                                                {travelData[selectedDay][activeTab] || "這裡空空的... 點擊編輯鈕填寫大家都能看到的資訊吧！"}
+                                            
+                                            <div className="flex items-center justify-between px-2">
+                                                <div className="flex items-center gap-2 text-slate-500 opacity-50">
+                                                    <Icon name="MapPin" size={16} />
+                                                    <span className="text-xs font-bold uppercase tracking-widest">{tabs.find(t => t.id === activeTab).label} 資訊欄</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => { setEditBuffer(travelData[selectedDay][activeTab] || ""); setIsEditing(true); }} 
+                                                    className="bg-slate-800/80 text-cyan-400 px-8 py-3 rounded-2xl text-sm font-black shadow-lg hover:bg-slate-700 transition-all border border-slate-700 active:scale-95 flex items-center gap-2"
+                                                >
+                                                    <Icon name="Edit3" size={16} />編輯內容
+                                                </button>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="space-y-8 animate-in">
-                                            <div className="flex items-center justify-between text-green-400 font-black">
-                                                <div className="flex items-center gap-2"><Icon name="Unlock" size={18} /><span className="text-[10px] uppercase tracking-tighter">多人即時協作模式</span></div>
+                                        <div className="flex-1 flex flex-col h-full animate-in">
+                                            {/* 編輯輸入框 (Enlarge with height) */}
+                                            <textarea 
+                                                autoFocus 
+                                                value={editBuffer} 
+                                                onChange={(e) => setEditBuffer(e.target.value)} 
+                                                className="flex-1 bg-slate-950/40 border-2 border-cyan-500/30 rounded-[2.5rem] p-6 sm:p-10 mb-4 text-slate-100 text-2xl leading-relaxed focus:ring-4 focus:ring-cyan-500/10 outline-none shadow-inner transition-all resize-none no-scrollbar" 
+                                                placeholder={`在此輸入關於 ${tabs.find(t => t.id === activeTab).label} 的行程規劃...`}
+                                            />
+                                            
+                                            <div className="flex items-center justify-between px-2">
+                                                <div className="flex items-center gap-2 text-green-400 font-black opacity-80">
+                                                    <Icon name="Unlock" size={20} />
+                                                    <span className="text-xs uppercase tracking-tighter">多人即時同步中</span>
+                                                </div>
                                                 <div className="flex gap-4">
-                                                    <button onClick={() => setIsEditing(false)} className="text-slate-500 text-xs font-bold hover:text-white transition-colors">取消</button>
-                                                    <button onClick={() => handleSave(selectedDay, activeTab)} className="bg-cyan-500 text-slate-950 px-8 py-3 rounded-2xl text-sm font-black shadow-cyan-500/30 shadow-2xl hover:bg-cyan-400 transition-all active:scale-95"><Icon name="Save" size={18} className="inline mr-2"/>確認同步</button>
+                                                    <button onClick={() => setIsEditing(false)} className="text-slate-400 text-sm font-bold hover:text-white transition-colors px-4">取消</button>
+                                                    <button 
+                                                        onClick={() => handleSave(selectedDay, activeTab)} 
+                                                        className="bg-cyan-500 text-slate-950 px-10 py-3 rounded-2xl text-sm font-black shadow-cyan-500/40 shadow-2xl hover:bg-cyan-400 transition-all active:scale-95 flex items-center gap-2"
+                                                    >
+                                                        <Icon name="Save" size={18} />確認儲存
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <textarea autoFocus value={editBuffer} onChange={(e) => setEditBuffer(e.target.value)} className="w-full h-72 bg-slate-950/50 border border-white/10 rounded-[2rem] p-8 text-slate-200 text-xl leading-relaxed focus:ring-4 focus:ring-cyan-500/20 outline-none shadow-inner transition-all" placeholder={`請輸入 ${tabs.find(t => t.id === activeTab).label} 的相關細節...`} />
                                         </div>
                                     )}
-                                    <div className="mt-12 bg-cyan-500/5 p-8 rounded-[2rem] border border-cyan-500/10 flex items-start gap-5 shadow-inner">
-                                        <div className="text-cyan-500 mt-1 flex-shrink-0"><Icon name="Cloud" size={24} /></div>
-                                        <div>
-                                            <h5 className="text-xs font-black text-cyan-500/80 mb-2 tracking-widest uppercase italic">雲端自動化同步系統</h5>
-                                            <p className="text-xs text-slate-500 leading-relaxed italic font-medium">
-                                                此行程表無需登入與密碼。您提交的所有變更都會即時推送到雲端數據庫，所有成員開啟網頁時都能同步看到最新行程。
-                                            </p>
-                                        </div>
-                                    </div>
                                 </div>
-                                <div className="p-8 bg-slate-950/80 border-t border-white/5 flex justify-center shadow-2xl">
-                                    <button onClick={closeModal} className="text-slate-500 hover:text-cyan-400 font-black transition-all duration-300 text-[10px] tracking-widest uppercase">返回行程列表</button>
+
+                                {/* 底部標籤與返回 */}
+                                <div className="p-4 sm:p-6 bg-slate-950/40 border-t border-white/5 flex justify-center">
+                                    <button onClick={closeModal} className="text-slate-600 hover:text-cyan-400 font-bold transition-all duration-300 text-xs tracking-widest uppercase">
+                                        返回行程列表
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -265,7 +279,8 @@
             );
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
         root.render(<App />);
     </script>
 </body>
