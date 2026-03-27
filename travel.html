@@ -153,6 +153,14 @@
             return (
                 <div className="min-h-screen bg-slate-950 text-white p-4 sm:p-8 animate-in">
                     <header className="max-w-7xl mx-auto text-center mb-12">
+
+                        {/* 頂部標題區加入首頁按鈕 */}
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="flex items-center gap-4">
+                                <a href="index.html" className="p-2.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-2xl border border-slate-700 transition-all shadow-xl active:scale-95 flex items-center justify-center" title="返回首頁">
+                                    <Icon name="Home" size={24} />
+                                </a>
+
                         <h1 className="text-5xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tight text-shadow">上輋七遊濟州</h1>
                         <div className="flex flex-col items-center gap-2">
                             <div className="inline-block px-5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-sm font-bold shadow-2xl">2026年 7月27日 至 8月1日</div>
