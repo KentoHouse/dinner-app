@@ -12,6 +12,7 @@
         .btn-active-orange { background-color: #f97316; color: white; box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.4); }
         .btn-active-blue { background-color: #3b82f6; color: white; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4); }
         .btn-active-gray { background-color: #64748b; color: white; box-shadow: 0 4px 6px -1px rgba(100, 116, 139, 0.4); }
+        .btn-active-indigo { background-color: #6366f1; color: white; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4); }
         .btn-inactive { background-color: white; color: #94a3b8; border: 1px solid #e2e8f0; }
         .btn-locked { opacity: 0.85; border: 2px solid #cbd5e1; cursor: default; }
         .loading-overlay { position: fixed; inset: 0; background: white; display: flex; align-items: center; justify-content: center; z-index: 50; transition: opacity 0.5s; }
@@ -25,8 +26,8 @@
                 <i data-lucide="shield-alert" class="w-16 h-16"></i>
             </div>
             <h2 class="text-xl font-bold text-slate-800 mb-4">雲端同步權限問題</h2>
-            <p class="text-slate-600 text-sm mb-6 leading-relaxed">
-                系統無法連線至雲端。請確保在 Firebase 的 <b>Firestore Database</b> 分頁中已發佈正確的 <b>Rules</b>。
+            <p id="error-message" class="text-slate-600 text-sm mb-6 leading-relaxed">
+                系統無法連線至雲端。請確保在 Firebase 的 <b>Authentication</b> 設定中已將目前的網域加入「授權網域」。
             </p>
             <button onclick="location.reload()" class="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-all">
                 重新整理
@@ -55,10 +56,11 @@
                             <h1 class="text-2xl font-bold text-slate-800">上輋報飯</h1>
                             <span id="week-display" class="text-orange-500 font-bold text-lg"></span>
                         </div>
-                        <!-- GO-HOME 按鈕 -->
-                        <a href="index.html" class="flex items-center gap-1.5 text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded-xl font-bold hover:bg-slate-700 transition-all shadow-sm">
-                            <i data-lucide="home" class="w-3 h-3"></i> GO-HOME
-                        </a>
+                        <div id="sync-status-indicator" class="flex items-center gap-2">
+                             <a href="index.html" class="flex items-center gap-1.5 text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded-xl font-bold hover:bg-slate-700 transition-all shadow-sm">
+                                <i data-lucide="home" class="w-3 h-3"></i> GO-HOME
+                            </a>
+                        </div>
                     </div>
                     <p class="text-slate-500 text-xs mt-1">💡 晚飯/參與與食自己互斥。選取後轉灰。連按 3 次解除鎖定。</p>
                 </div>
@@ -81,23 +83,25 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBPO4VEzvUkuAZlDphTN6M7K7BORmkGePQ",
-            authDomain: "dinnerbase.firebaseapp.com",
-            projectId: "dinnerbase",
-            storageBucket: "dinnerbase.firebasestorage.app",
-            messagingSenderId: "26681451491",
-            appId: "1:26681451491:web:50c1788cdceefcc343b6d6"
-        };
+        const firebaseConfig = typeof __firebase_config !== 'undefined'
+            ? JSON.parse(__firebase_config)
+            : {
+                apiKey: "AIzaSyBPO4VEzvUkuAZlDphTN6M7K7BORmkGePQ",
+                authDomain: "dinnerbase.firebaseapp.com",
+                projectId: "dinnerbase",
+                storageBucket: "dinnerbase.firebasestorage.app",
+                messagingSenderId: "26681451491",
+                appId: "1:26681451491:web:50c1788cdceefcc343b6d6"
+            };
 
         const fbApp = initializeApp(firebaseConfig);
         const auth = getAuth(fbApp);
         const db = getFirestore(fbApp);
 
-        const appId = 'dinnerbase-v2';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dinnerbase-v2';
         const MEMBERS = ['Jason', 'Cheryl', 'Cher'];
         const COOKING_DAYS = [
             { id: 'mon', label: '星期一 (Monday)' },
@@ -110,7 +114,12 @@
         let lastClickTime = {}; 
 
         function initBaseState() {
-            const empty = {};
+            const empty = {
+                cherLunch: { tue: false, wed: false, thu: false }
+            };
+            clickCounters.cherLunch = { tue: 0, wed: 0, thu: 0 };
+            lastClickTime.cherLunch = { tue: 0, wed: 0, thu: 0 };
+            
             COOKING_DAYS.forEach(day => {
                 empty[day.id] = {};
                 clickCounters[day.id] = {};
@@ -132,6 +141,7 @@
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     localState = docSnap.data().votes;
+                    if (!localState.cherLunch) localState.cherLunch = { tue: false, wed: false, thu: false };
                     render();
                 } else {
                     setDoc(docRef, { votes: initBaseState() }).catch(e => console.error("Write failed", e));
@@ -160,11 +170,15 @@
 
         const initAuth = async () => {
             try {
-                await signInAnonymously(auth);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
             } catch (e) {
                 console.error("Auth Error", e);
-                const weekInfo = getWeekInfo();
-                startSync(weekInfo.weekId);
+                document.getElementById('error-modal').classList.remove('hidden');
+                document.getElementById('loader').style.display = 'none';
             }
         };
 
@@ -198,6 +212,32 @@
             }
         };
 
+        window.handleCherLunchClick = async (dayKey) => {
+            const now = Date.now();
+            const isActive = localState.cherLunch[dayKey];
+            
+            if (!clickCounters.cherLunch) clickCounters.cherLunch = { tue: 0, wed: 0, thu: 0 };
+            if (!lastClickTime.cherLunch) lastClickTime.cherLunch = { tue: 0, wed: 0, thu: 0 };
+
+            if (now - (lastClickTime.cherLunch[dayKey] || 0) > 1000) {
+                clickCounters.cherLunch[dayKey] = 0;
+            }
+            lastClickTime.cherLunch[dayKey] = now;
+
+            if (!isActive) {
+                localState.cherLunch[dayKey] = true;
+                await updateCloud();
+            } else {
+                clickCounters.cherLunch[dayKey]++;
+                render(); 
+                if (clickCounters.cherLunch[dayKey] >= 3) {
+                    localState.cherLunch[dayKey] = false;
+                    clickCounters.cherLunch[dayKey] = 0;
+                    await updateCloud();
+                }
+            }
+        };
+
         async function updateCloud() {
             const weekId = getWeekInfo().weekId;
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
@@ -225,11 +265,31 @@
             };
         }
 
+        function renderCherLunchBtn(dayKey, label) {
+            const val = localState.cherLunch?.[dayKey] || false;
+            const count = clickCounters.cherLunch?.[dayKey] || 0;
+            const displayIcon = val ? 'lock' : null;
+            const activeClass = 'btn-active-indigo'; 
+            const currentClass = val ? `${activeClass} btn-locked` : 'btn-inactive';
+            const iconHtml = displayIcon ? `<i data-lucide="${displayIcon}" class="w-3.5 h-3.5"></i>` : '';
+            return `
+                <button onclick="window.handleCherLunchClick('${dayKey}')" 
+                    class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${currentClass}">
+                    ${iconHtml}
+                    ${label}
+                    ${count > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${count}</span>` : ''}
+                </button>
+            `;
+        }
+
         function render() {
             const weekInfo = getWeekInfo();
             document.getElementById('week-display').innerHTML = `${weekInfo.weekStr} <span class="text-slate-400 text-sm font-normal">(${weekInfo.rangeStr})</span>`;
             const container = document.getElementById('days-container');
-            container.innerHTML = COOKING_DAYS.map(day => `
+            
+            let html = '';
+            COOKING_DAYS.forEach(day => {
+                html += `
                 <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 transition-all">
                     <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
                         <div class="w-2 h-6 rounded-full ${day.id === 'thu' ? 'bg-blue-400' : 'bg-orange-400'}"></div>
@@ -246,7 +306,24 @@
                             </div>
                         `).join('')}
                     </div>
-                </div>`).join('');
+                </div>`;
+
+                if (day.id === 'tue') {
+                    html += `
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 transition-all">
+                        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                            <span class="font-semibold text-slate-700 ml-2">帶飯</span>
+                            <div class="flex gap-2">
+                                ${renderCherLunchBtn('tue', '星期二')}
+                                ${renderCherLunchBtn('wed', '星期三')}
+                                ${renderCherLunchBtn('thu', '星期四')}
+                            </div>
+                        </div>
+                    </div>`;
+                }
+            });
+            
+            container.innerHTML = html;
             updateSummary();
             lucide.createIcons();
         }
@@ -292,6 +369,14 @@
                 summary += `🙅 食自己 (${lunchList.length}人): ${lunchList.join(', ') || '無'}\n`;
                 summary += "\n";
             });
+            const cherLunches = [];
+            if (localState.cherLunch.tue) cherLunches.push('星期二');
+            if (localState.cherLunch.wed) cherLunches.push('星期三');
+            if (localState.cherLunch.thu) cherLunches.push('星期四');
+            if (cherLunches.length > 0) {
+                summary += `🍱 額外帶飯: ${cherLunches.join(', ')}\n\n`;
+            }
+
             const el = document.createElement("textarea"); el.value = summary; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
             const btnText = document.getElementById('copy-btn-text'); const original = btnText.innerHTML;
             btnText.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-green-400"></i> 已複製！';
