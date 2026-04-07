@@ -16,6 +16,8 @@
         .btn-inactive { background-color: white; color: #94a3b8; border: 1px solid #e2e8f0; }
         .btn-locked { opacity: 0.85; border: 2px solid #cbd5e1; cursor: default; }
         .loading-overlay { position: fixed; inset: 0; background: white; display: flex; align-items: center; justify-content: center; z-index: 50; transition: opacity 0.5s; }
+        .qty-badge { font-size: 10px; font-weight: 900; color: #6366f1; margin-top: 2px; animation: bounce 0.3s ease; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -62,7 +64,7 @@
                             </a>
                         </div>
                     </div>
-                    <p class="text-slate-500 text-xs mt-1">💡 晚飯/參與與食自己互斥。選取後轉灰。連按 3 次解除鎖定。</p>
+                    <p class="text-slate-500 text-xs mt-1">💡 帶飯選取後可點擊切換數量 (+1~+3)。連按 3 次可取消。</p>
                 </div>
             </div>
         </div>
@@ -115,7 +117,7 @@
 
         function initBaseState() {
             const empty = {
-                cherLunch: { tue: false, wed: false, thu: false }
+                cherLunch: { tue: 0, wed: 0, thu: 0 }
             };
             clickCounters.cherLunch = { tue: 0, wed: 0, thu: 0 };
             lastClickTime.cherLunch = { tue: 0, wed: 0, thu: 0 };
@@ -141,7 +143,7 @@
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     localState = docSnap.data().votes;
-                    if (!localState.cherLunch) localState.cherLunch = { tue: false, wed: false, thu: false };
+                    if (!localState.cherLunch) localState.cherLunch = { tue: 0, wed: 0, thu: 0 };
                     render();
                 } else {
                     setDoc(docRef, { votes: initBaseState() }).catch(e => console.error("Write failed", e));
@@ -214,7 +216,8 @@
 
         window.handleCherLunchClick = async (dayKey) => {
             const now = Date.now();
-            const isActive = localState.cherLunch[dayKey];
+            const currentQty = localState.cherLunch[dayKey] || 0;
+            const isActive = currentQty > 0;
             
             if (!clickCounters.cherLunch) clickCounters.cherLunch = { tue: 0, wed: 0, thu: 0 };
             if (!lastClickTime.cherLunch) lastClickTime.cherLunch = { tue: 0, wed: 0, thu: 0 };
@@ -225,16 +228,21 @@
             lastClickTime.cherLunch[dayKey] = now;
 
             if (!isActive) {
-                localState.cherLunch[dayKey] = true;
+                // 第一次點擊：開啟並設為 1
+                localState.cherLunch[dayKey] = 1;
                 await updateCloud();
             } else {
+                // 已開啟：循環數量 (+1 -> +2 -> +3 -> +1)
+                let nextQty = (currentQty % 3) + 1;
+                localState.cherLunch[dayKey] = nextQty;
+
+                // 同時檢測 3 連擊解鎖邏輯
                 clickCounters.cherLunch[dayKey]++;
-                render(); 
                 if (clickCounters.cherLunch[dayKey] >= 3) {
-                    localState.cherLunch[dayKey] = false;
+                    localState.cherLunch[dayKey] = 0; // 取消
                     clickCounters.cherLunch[dayKey] = 0;
-                    await updateCloud();
                 }
+                await updateCloud();
             }
         };
 
@@ -266,19 +274,24 @@
         }
 
         function renderCherLunchBtn(dayKey, label) {
-            const val = localState.cherLunch?.[dayKey] || false;
+            const val = localState.cherLunch?.[dayKey] || 0;
             const count = clickCounters.cherLunch?.[dayKey] || 0;
-            const displayIcon = val ? 'lock' : null;
+            const isSelected = val > 0;
+            const displayIcon = isSelected ? 'lock' : null;
             const activeClass = 'btn-active-indigo'; 
-            const currentClass = val ? `${activeClass} btn-locked` : 'btn-inactive';
+            const currentClass = isSelected ? `${activeClass} btn-locked` : 'btn-inactive';
             const iconHtml = displayIcon ? `<i data-lucide="${displayIcon}" class="w-3.5 h-3.5"></i>` : '';
+            
             return `
-                <button onclick="window.handleCherLunchClick('${dayKey}')" 
-                    class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${currentClass}">
-                    ${iconHtml}
-                    ${label}
-                    ${count > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${count}</span>` : ''}
-                </button>
+                <div class="flex flex-col items-center">
+                    <button onclick="window.handleCherLunchClick('${dayKey}')" 
+                        class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${currentClass}">
+                        ${iconHtml}
+                        ${label}
+                        ${count > 0 && isSelected ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${count}</span>` : ''}
+                    </button>
+                    ${isSelected ? `<span class="qty-badge">+${val}</span>` : '<div class="h-4"></div>'}
+                </div>
             `;
         }
 
@@ -339,7 +352,7 @@
                     class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${currentClass}">
                     ${iconHtml}
                     ${label}
-                    ${count > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${count}</span>` : ''}
+                    ${count > 0 && val ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-black">${count}</span>` : ''}
                 </button>
             `;
         }
@@ -369,12 +382,14 @@
                 summary += `🙅 食自己 (${lunchList.length}人): ${lunchList.join(', ') || '無'}\n`;
                 summary += "\n";
             });
-            const cherLunches = [];
-            if (localState.cherLunch.tue) cherLunches.push('星期二');
-            if (localState.cherLunch.wed) cherLunches.push('星期三');
-            if (localState.cherLunch.thu) cherLunches.push('星期四');
-            if (cherLunches.length > 0) {
-                summary += `🍱 額外帶飯: ${cherLunches.join(', ')}\n\n`;
+            
+            const extraLunches = [];
+            if (localState.cherLunch.tue > 0) extraLunches.push(`星期二 (${localState.cherLunch.tue}個)`);
+            if (localState.cherLunch.wed > 0) extraLunches.push(`星期三 (${localState.cherLunch.wed}個)`);
+            if (localState.cherLunch.thu > 0) extraLunches.push(`星期四 (${localState.cherLunch.thu}個)`);
+            
+            if (extraLunches.length > 0) {
+                summary += `🍱 額外帶飯: ${extraLunches.join(', ')}\n\n`;
             }
 
             const el = document.createElement("textarea"); el.value = summary; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
