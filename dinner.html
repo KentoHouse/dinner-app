@@ -18,6 +18,8 @@
         .loading-overlay { position: fixed; inset: 0; background: white; display: flex; align-items: center; justify-content: center; z-index: 50; transition: opacity 0.5s; }
         .qty-badge { font-size: 10px; font-weight: 900; color: #6366f1; margin-top: 2px; animation: bounce 0.3s ease; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        .staple-input { -webkit-appearance: none; appearance: none; }
+        .staple-input::placeholder { color: #f87171; font-weight: 500; opacity: 0.75; }
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -106,10 +108,11 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'dinnerbase-v2';
         const MEMBERS = ['Jason', 'Cheryl', 'Cher'];
         const COOKING_DAYS = [
-            { id: 'mon', label: '星期一 (Monday)' },
-            { id: 'tue', label: '星期二 (Tuesday)' },
-            { id: 'thu', label: '星期四 (一齊出街食)' }
+            { id: 'mon', label: '星期一 (Monday)', hasStaple: true },
+            { id: 'tue', label: '星期二 (Tuesday)', hasStaple: true },
+            { id: 'thu', label: '星期四 (一齊出街食)', hasStaple: false }
         ];
+        const STAPLE_DAYS = ['mon', 'tue'];
 
         let localState = {};
         let clickCounters = {}; 
@@ -117,7 +120,8 @@
 
         function initBaseState() {
             const empty = {
-                cherLunch: { tue: 0, wed: 0, thu: 0 }
+                cherLunch: { tue: 0, wed: 0, thu: 0 },
+                staples: { mon: '', tue: '' }
             };
             clickCounters.cherLunch = { tue: 0, wed: 0, thu: 0 };
             lastClickTime.cherLunch = { tue: 0, wed: 0, thu: 0 };
@@ -137,6 +141,68 @@
 
         localState = initBaseState();
 
+        function ensureStaples(state) {
+            if (!state.staples || typeof state.staples !== 'object' || Array.isArray(state.staples)) {
+                state.staples = { mon: '', tue: '' };
+                return;
+            }
+            if (typeof state.staples.mon !== 'string') state.staples.mon = '';
+            if (typeof state.staples.tue !== 'string') state.staples.tue = '';
+        }
+
+        function escapeAttr(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function captureStapleEdits() {
+            const drafts = {};
+            document.querySelectorAll('input[data-staple-day]').forEach((el) => {
+                if (document.activeElement === el) {
+                    drafts[el.dataset.stapleDay] = {
+                        value: el.value,
+                        start: el.selectionStart,
+                        end: el.selectionEnd
+                    };
+                }
+            });
+            return drafts;
+        }
+
+        function restoreStapleEdits(drafts) {
+            Object.entries(drafts).forEach(([dayId, draft]) => {
+                const el = document.querySelector(`input[data-staple-day="${dayId}"]`);
+                if (!el) return;
+                el.value = draft.value;
+                el.focus();
+                try { el.setSelectionRange(draft.start, draft.end); } catch (_) {}
+            });
+        }
+
+        function renderStapleField(dayId) {
+            const value = localState.staples?.[dayId] || '';
+            return `
+                <label class="flex items-center gap-0 ml-2 sm:ml-3 font-bold min-w-0">
+                    <span class="text-slate-700 whitespace-nowrap">主食：</span>
+                    <input
+                        type="text"
+                        data-staple-day="${dayId}"
+                        value="${escapeAttr(value)}"
+                        placeholder="點擊輸入"
+                        maxlength="30"
+                        autocomplete="off"
+                        spellcheck="false"
+                        class="staple-input bg-transparent border-0 outline-none ring-0 focus:ring-0 text-red-600 font-bold min-w-[7.5rem] w-[10rem] sm:w-[12rem] p-0 caret-red-500"
+                        onblur="window.handleStapleChange('${dayId}', this.value)"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+                    />
+                </label>
+            `;
+        }
+
         const startSync = (weekId) => {
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
 
@@ -144,6 +210,7 @@
                 if (docSnap.exists()) {
                     localState = docSnap.data().votes;
                     if (!localState.cherLunch) localState.cherLunch = { tue: 0, wed: 0, thu: 0 };
+                    ensureStaples(localState);
                     render();
                 } else {
                     setDoc(docRef, { votes: initBaseState() }).catch(e => console.error("Write failed", e));
@@ -214,6 +281,15 @@
             }
         };
 
+        window.handleStapleChange = async (dayId, value) => {
+            if (!STAPLE_DAYS.includes(dayId)) return;
+            ensureStaples(localState);
+            const next = String(value || '').replace(/\s+/g, ' ').trim();
+            if (localState.staples[dayId] === next) return;
+            localState.staples[dayId] = next;
+            await updateCloud();
+        };
+
         window.handleCherLunchClick = async (dayKey) => {
             const now = Date.now();
             const currentQty = localState.cherLunch[dayKey] || 0;
@@ -250,6 +326,7 @@
             const weekId = getWeekInfo().weekId;
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'weekly_votes', weekId);
             try { 
+                ensureStaples(localState);
                 await setDoc(docRef, { votes: localState });
             } catch (e) { 
                 console.error("Cloud Write Error:", e);
@@ -296,6 +373,7 @@
         }
 
         function render() {
+            const stapleDrafts = captureStapleEdits();
             const weekInfo = getWeekInfo();
             document.getElementById('week-display').innerHTML = `${weekInfo.weekStr} <span class="text-slate-400 text-sm font-normal">(${weekInfo.rangeStr})</span>`;
             const container = document.getElementById('days-container');
@@ -304,9 +382,10 @@
             COOKING_DAYS.forEach(day => {
                 html += `
                 <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 transition-all">
-                    <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 flex-wrap">
                         <div class="w-2 h-6 rounded-full ${day.id === 'thu' ? 'bg-blue-400' : 'bg-orange-400'}"></div>
-                        ${day.label}
+                        <span>${day.label}</span>
+                        ${day.hasStaple ? renderStapleField(day.id) : ''}
                     </h2>
                     <div class="grid gap-3">
                         ${MEMBERS.map(m => `
@@ -339,6 +418,7 @@
             container.innerHTML = html;
             updateSummary();
             lucide.createIcons();
+            restoreStapleEdits(stapleDrafts);
         }
 
         function renderBtn(dayId, member, type, icon, label, activeClass) {
@@ -378,7 +458,12 @@
             COOKING_DAYS.forEach(day => {
                 const dinnerList = MEMBERS.filter(m => localState[day.id][m].dinner);
                 const lunchList = MEMBERS.filter(m => localState[day.id][m].lunchBox);
-                summary += `【${day.label}】\n🍚 晚飯 (${dinnerList.length}人): ${dinnerList.join(', ') || '無'}\n`;
+                summary += `【${day.label}】\n`;
+                if (day.hasStaple) {
+                    const staple = (localState.staples?.[day.id] || '').trim();
+                    if (staple) summary += `🍜 主食：${staple}\n`;
+                }
+                summary += `🍚 晚飯 (${dinnerList.length}人): ${dinnerList.join(', ') || '無'}\n`;
                 summary += `🙅 食自己 (${lunchList.length}人): ${lunchList.join(', ') || '無'}\n`;
                 summary += "\n";
             });
