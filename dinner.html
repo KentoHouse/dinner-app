@@ -110,9 +110,9 @@
         const COOKING_DAYS = [
             { id: 'mon', label: '星期一 (Monday)', hasStaple: true },
             { id: 'tue', label: '星期二 (Tuesday)', hasStaple: true },
-            { id: 'thu', label: '星期四 (一齊出街食)', hasStaple: false }
+            { id: 'thu', label: '星期四 (一齊出街食)', hasStaple: true }
         ];
-        const STAPLE_DAYS = ['mon', 'tue'];
+        const STAPLE_DAYS = ['mon', 'tue', 'thu'];
 
         let localState = {};
         let clickCounters = {}; 
@@ -121,7 +121,7 @@
         function initBaseState() {
             const empty = {
                 cherLunch: { tue: 0, wed: 0, thu: 0 },
-                staples: { mon: '', tue: '' }
+                staples: { mon: '', tue: '', thu: '' }
             };
             clickCounters.cherLunch = { tue: 0, wed: 0, thu: 0 };
             lastClickTime.cherLunch = { tue: 0, wed: 0, thu: 0 };
@@ -143,11 +143,12 @@
 
         function ensureStaples(state) {
             if (!state.staples || typeof state.staples !== 'object' || Array.isArray(state.staples)) {
-                state.staples = { mon: '', tue: '' };
+                state.staples = { mon: '', tue: '', thu: '' };
                 return;
             }
             if (typeof state.staples.mon !== 'string') state.staples.mon = '';
             if (typeof state.staples.tue !== 'string') state.staples.tue = '';
+            if (typeof state.staples.thu !== 'string') state.staples.thu = '';
         }
 
         function escapeAttr(value) {
